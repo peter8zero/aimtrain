@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aim Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0e0e12;
+  --bg-surface: #16161c;
+  --bg-elevated: #1e1e26;
+  --border: #2a2a36;
+  --text: #e0e0e6;
+  --text-dim: #8888a0;
+  --accent: #6c5ce7;
+  --accent-glow: #7c6cf7;
+  --hit: #00e676;
+  --miss: #ff5252;
+  --warn: #ffa726;
+  --target: #ff4757;
+  --target-glow: rgba(255,71,87,0.3);
+  --canvas-bg: #12121a;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  cursor: none;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 2px;
+}
+
+.btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn:hover { border-color: var(--accent); color: #fff; }
+.btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.btn-start {
+  padding: 6px 20px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.btn-start:hover { background: var(--accent-glow); }
+.btn-start.stop { background: var(--miss); border-color: var(--miss); }
+
+.canvas-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: var(--canvas-bg);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hud {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.hud.visible { opacity: 1; }
+
+.hud-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-label { color: var(--text-dim); font-weight: 500; }
+.hud-value { color: #fff; font-variant-numeric: tabular-nums; }
+
+.hud-right {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.streak { color: var(--warn); }
+
+.countdown-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 96px;
+  font-weight: 700;
+  color: var(--accent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  text-shadow: 0 0 40px rgba(108,92,231,0.5);
+}
+
+.countdown-overlay.visible { opacity: 1; }
+
+.center-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.center-message.visible { opacity: 1; }
+.center-message h2 { font-size: 28px; margin-bottom: 8px; }
+.center-message p { color: var(--text-dim); font-size: 15px; }
+
+.results-panel {
+  display: none;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+  overflow-y: auto;
+  max-height: 45vh;
+  flex-shrink: 0;
+}
+
+.results-panel.visible { display: block; }
+
+.results-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+}
+
+.stats-card, .habits-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.stat-label { color: var(--text-dim); }
+.stat-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.habit-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.habit-icon { flex-shrink: 0; font-size: 14px; }
+.habit-bad .habit-icon { color: var(--warn); }
+.habit-good .habit-icon { color: var(--hit); }
+.habit-name { font-weight: 600; }
+.habit-detail { color: var(--text-dim); }
+.habit-tip { color: var(--warn); font-style: italic; margin-top: 2px; font-size: 12px; }
+
+.custom-settings {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.custom-settings.visible { display: flex; }
+
+.custom-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.custom-field label { color: var(--text-dim); white-space: nowrap; }
+
+.custom-field input {
+  width: 56px;
+  padding: 3px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: center;
+}
+
+.crosshair {
+  position: fixed;
+  pointer-events: none;
+  z-index: 100;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+}
+
+.history-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+@media (max-width: 768px) {
+  body { overflow-y: auto; cursor: default; }
+  .crosshair { display: none; }
+  .canvas-wrap { min-height: 60vh; flex: none; }
+  .results-grid { grid-template-columns: 1fr; }
+  .results-panel { max-height: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="crosshair" id="crosshair">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="4" stroke="#fff" stroke-width="1.5" opacity="0.9"/>
+    <line x1="12" y1="0" x2="12" y2="7" stroke="#fff" stroke-width="1.5" opacity="0.7"/>
+    <line x1="12" y1="17" x2="12" y2="24" stroke="#fff" stroke-width="1.5" opacity="0.7"/>
+    <line x1="0" y1="12" x2="7" y2="12" stroke="#fff" stroke-width="1.5" opacity="0.7"/>
+    <line x1="17" y1="12" x2="24" y2="12" stroke="#fff" stroke-width="1.5" opacity="0.7"/>
+  </svg>
+</div>
+
+<div class="toolbar" id="toolbar">
+  <div class="toolbar-group">
+    <span class="toolbar-label">Mode</span>
+    <button class="btn active" data-mode="flick">Flick</button>
+    <button class="btn" data-mode="tracking">Track</button>
+    <button class="btn" data-mode="speed">Speed</button>
+    <button class="btn" data-mode="precision">Precision</button>
+  </div>
+  <div class="toolbar-group">
+    <span class="toolbar-label">Difficulty</span>
+    <button class="btn" data-diff="easy">Easy</button>
+    <button class="btn active" data-diff="medium">Medium</button>
+    <button class="btn" data-diff="hard">Hard</button>
+    <button class="btn" data-diff="custom">Custom</button>
+  </div>
+  <div class="custom-settings" id="customSettings">
+    <div class="custom-field"><label>Size</label><input type="number" id="cSize" value="30" min="5" max="100"></div>
+    <div class="custom-field"><label>Timeout</label><input type="number" id="cTimeout" value="1200" min="200" max="5000" step="100">ms</div>
+    <div class="custom-field"><label>Delay</label><input type="number" id="cDelay" value="400" min="50" max="2000" step="50">ms</div>
+    <div class="custom-field"><label>Count</label><input type="number" id="cCount" value="50" min="5" max="200"></div>
+  </div>
+  <button class="btn history-btn" id="historyBtn">History</button>
+  <button class="btn btn-start" id="startBtn">Start</button>
+</div>
+
+<div class="canvas-wrap" id="canvasWrap">
+  <canvas id="canvas"></canvas>
+  <div class="hud" id="hud">
+    <div class="hud-item"><span class="hud-label">Score</span><span class="hud-value" id="hudScore">0</span></div>
+    <div class="hud-item"><span class="hud-label">Accuracy</span><span class="hud-value" id="hudAccuracy">-</span></div>
+    <div class="hud-item"><span class="hud-label">Time</span><span class="hud-value" id="hudTime">0.0s</span></div>
+    <div class="hud-item"><span class="hud-label">Hits</span><span class="hud-value" id="hudHits">0/0</span></div>
+  </div>
+  <div class="hud-right hud" id="hudRight">
+    <span class="streak" id="hudStreak"></span>
+  </div>
+  <div class="countdown-overlay" id="countdown"></div>
+  <div class="center-message visible" id="centerMsg">
+    <h2>Aim Trainer</h2>
+    <p>Select a mode and difficulty, then click Start</p>
+  </div>
+</div>
+
+<div class="results-panel" id="results">
+  <div class="results-grid">
+    <div class="stats-card">
+      <div class="card-title">Round Stats</div>
+      <div id="statsBody"></div>
+    </div>
+    <div class="habits-card">
+      <div class="card-title">Habit Analysis</div>
+      <div id="habitsBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────
+const DIFFICULTY = {
+  easy:   { targetSize: 50, timeout: 2000, spawnDelay: 800, count: 30, trackSpeed: 1.5 },
+  medium: { targetSize: 30, timeout: 1200, spawnDelay: 400, count: 50, trackSpeed: 3 },
+  hard:   { targetSize: 18, timeout: 700,  spawnDelay: 150, count: 50, trackSpeed: 5 },
+};
+
+const HABIT_THRESHOLDS = {
+  overflickDistRatio: 0.15,
+  underflickStopRatio: 0.25,
+  spamClickInterval: 100,
+  panicClickWindowRatio: 0.3,
+  hesitationDelay: 500,
+  curvedPathRatio: 1.4,
+  jerkyVelocityCV: 0.8,
+  fixationSlowdownRatio: 0.35,
+  flinchDistance: 8,
+  driftThreshold: 30,
+  inconsistentSpeedCV: 0.5,
+};
+
+// ─── STATE ───────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+const state = {
+  mode: 'flick',
+  difficulty: 'medium',
+  phase: 'idle', // idle, countdown, playing, ended
+  config: null,
+  score: 0,
+  hits: 0,
+  misses: 0,
+  totalClicks: 0,
+  streak: 0,
+  maxStreak: 0,
+  roundStart: 0,
+  roundEnd: 0,
+  targetsSpawned: 0,
+  targetsMissed: 0,
+
+  // current target
+  target: null,
+  targetSpawnTime: 0,
+  targetTimeout: null,
+  spawnTimer: null,
+
+  // tracking mode
+  trackTarget: null,
+  trackOnTime: 0,
+  trackTotalTime: 0,
+  trackLastCheck: 0,
+
+  // precision mode
+  precisionShrinkStart: 0,
+
+  // recording
+  mousePath: [],
+  clicks: [],
+  targetEvents: [],
+  perTargetPaths: [],
+
+  // mouse
+  mouseX: 0,
+  mouseY: 0,
+};
+
+// ─── CANVAS SETUP ────────────────────────────────────
+function resize() {
+  const wrap = document.getElementById('canvasWrap');
+  W = wrap.clientWidth;
+  H = wrap.clientHeight;
+  canvas.width = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+// ─── INPUT ───────────────────────────────────────────
+const canvasWrap = document.getElementById('canvasWrap');
+
+document.addEventListener('mousemove', (e) => {
+  state.mouseX = e.clientX;
+  state.mouseY = e.clientY;
+  document.getElementById('crosshair').style.left = e.clientX + 'px';
+  document.getElementById('crosshair').style.top = e.clientY + 'px';
+
+  if (state.phase === 'playing') {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    state.mousePath.push({ x, y, t: performance.now() });
+  }
+});
+
+canvasWrap.addEventListener('mousedown', (e) => {
+  if (state.phase !== 'playing') return;
+  e.preventDefault();
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const t = performance.now();
+
+  if (state.mode === 'tracking') return; // no clicking in tracking mode
+
+  state.totalClicks++;
+  let hit = false;
+  let tgt = state.target;
+
+  if (tgt) {
+    const dx = x - tgt.x;
+    const dy = y - tgt.y;
+    const r = tgt.currentRadius || tgt.radius;
+    if (dx * dx + dy * dy <= r * r) {
+      hit = true;
+      const rt = t - state.targetSpawnTime;
+      state.hits++;
+      state.streak++;
+      if (state.streak > state.maxStreak) state.maxStreak = state.streak;
+
+      let points = 100;
+      if (state.mode === 'precision') {
+        // smaller target at click = more points
+        const sizeRatio = tgt.radius / (tgt.currentRadius || tgt.radius);
+        points = Math.round(100 * sizeRatio);
+      }
+      // bonus for speed
+      points += Math.max(0, Math.round((state.config.timeout - rt) / 10));
+      // streak bonus
+      if (state.streak > 3) points += state.streak * 5;
+      state.score += points;
+
+      // record
+      state.targetEvents.push({
+        ...tgt, hitTime: t, reactionTime: rt, hit: true, clickX: x, clickY: y
+      });
+
+      spawnHitEffect(tgt.x, tgt.y);
+      clearTarget();
+      if (state.targetsSpawned < state.config.count) {
+        scheduleNextTarget();
+      } else if (state.hits + state.targetsMissed >= state.config.count) {
+        endRound();
+      }
+    }
+  }
+
+  if (!hit) {
+    state.misses++;
+    state.streak = 0;
+    spawnMissEffect(x, y);
+  }
+
+  state.clicks.push({ x, y, t, hit });
+});
+
+// prevent context menu on canvas
+canvasWrap.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ─── TOOLBAR ─────────────────────────────────────────
+document.querySelectorAll('[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (state.phase === 'playing') return;
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.mode = btn.dataset.mode;
+  });
+});
+
+document.querySelectorAll('[data-diff]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (state.phase === 'playing') return;
+    document.querySelectorAll('[data-diff]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.difficulty = btn.dataset.diff;
+    document.getElementById('customSettings').classList.toggle('visible', state.difficulty === 'custom');
+  });
+});
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  if (state.phase === 'playing' || state.phase === 'countdown') {
+    stopRound();
+  } else {
+    startRound();
+  }
+});
+
+document.getElementById('historyBtn').addEventListener('click', showHistory);
+
+// ─── GAME FLOW ───────────────────────────────────────
+function getConfig() {
+  if (state.difficulty === 'custom') {
+    return {
+      targetSize: parseInt(document.getElementById('cSize').value) || 30,
+      timeout: parseInt(document.getElementById('cTimeout').value) || 1200,
+      spawnDelay: parseInt(document.getElementById('cDelay').value) || 400,
+      count: parseInt(document.getElementById('cCount').value) || 50,
+      trackSpeed: 3,
+    };
+  }
+  return { ...DIFFICULTY[state.difficulty] };
+}
+
+function startRound() {
+  state.config = getConfig();
+  state.phase = 'countdown';
+  state.score = 0;
+  state.hits = 0;
+  state.misses = 0;
+  state.totalClicks = 0;
+  state.streak = 0;
+  state.maxStreak = 0;
+  state.targetsSpawned = 0;
+  state.targetsMissed = 0;
+  state.target = null;
+  state.trackTarget = null;
+  state.trackOnTime = 0;
+  state.trackTotalTime = 0;
+  state.mousePath = [];
+  state.clicks = [];
+  state.targetEvents = [];
+  state.perTargetPaths = [];
+
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('centerMsg').classList.remove('visible');
+  document.getElementById('startBtn').textContent = 'Stop';
+  document.getElementById('startBtn').classList.add('stop');
+
+  // countdown
+  const cdEl = document.getElementById('countdown');
+  let count = 3;
+  cdEl.textContent = count;
+  cdEl.classList.add('visible');
+
+  const cdInterval = setInterval(() => {
+    count--;
+    if (count > 0) {
+      cdEl.textContent = count;
+    } else {
+      clearInterval(cdInterval);
+      cdEl.classList.remove('visible');
+      beginPlay();
+    }
+  }, 600);
+
+  state._cdInterval = cdInterval;
+}
+
+function beginPlay() {
+  state.phase = 'playing';
+  state.roundStart = performance.now();
+  document.getElementById('hud').classList.add('visible');
+  document.getElementById('hudRight').classList.add('visible');
+
+  if (state.mode === 'tracking') {
+    startTracking();
+  } else {
+    spawnTarget();
+  }
+}
+
+function stopRound() {
+  state.phase = 'idle';
+  clearTimeout(state.targetTimeout);
+  clearTimeout(state.spawnTimer);
+  clearInterval(state._cdInterval);
+  state.target = null;
+  state.trackTarget = null;
+  document.getElementById('countdown').classList.remove('visible');
+  document.getElementById('hud').classList.remove('visible');
+  document.getElementById('hudRight').classList.remove('visible');
+  document.getElementById('startBtn').textContent = 'Start';
+  document.getElementById('startBtn').classList.remove('stop');
+  document.getElementById('centerMsg').classList.add('visible');
+}
+
+function endRound() {
+  state.roundEnd = performance.now();
+  state.phase = 'ended';
+  clearTimeout(state.targetTimeout);
+  clearTimeout(state.spawnTimer);
+  state.target = null;
+  state.trackTarget = null;
+
+  document.getElementById('startBtn').textContent = 'Start';
+  document.getElementById('startBtn').classList.remove('stop');
+
+  // small delay before showing results
+  setTimeout(() => {
+    document.getElementById('hud').classList.remove('visible');
+    document.getElementById('hudRight').classList.remove('visible');
+    showResults();
+  }, 400);
+}
+
+// ─── TARGET SPAWNING ─────────────────────────────────
+function spawnTarget() {
+  const pad = state.config.targetSize + 20;
+  const x = pad + Math.random() * (W - 2 * pad);
+  const y = pad + Math.random() * (H - 2 * pad);
+  const r = state.config.targetSize / 2;
+
+  state.target = { x, y, radius: r, currentRadius: r, spawnTime: performance.now() };
+  state.targetSpawnTime = performance.now();
+  state.targetsSpawned++;
+
+  // save current mouse path index for per-target analysis
+  state.perTargetPaths.push({ targetIndex: state.targetsSpawned - 1, pathStartIdx: state.mousePath.length, target: { x, y, radius: r } });
+
+  if (state.mode === 'precision') {
+    state.precisionShrinkStart = performance.now();
+  }
+
+  // timeout
+  state.targetTimeout = setTimeout(() => {
+    if (state.target) {
+      state.targetEvents.push({
+        ...state.target, hit: false, hitTime: null, reactionTime: null,
+      });
+      state.targetsMissed++;
+      state.streak = 0;
+      clearTarget();
+      if (state.targetsSpawned < state.config.count) {
+        scheduleNextTarget();
+      } else {
+        endRound();
+      }
+    }
+  }, state.config.timeout);
+}
+
+function clearTarget() {
+  state.target = null;
+  clearTimeout(state.targetTimeout);
+
+  // close per-target path
+  const last = state.perTargetPaths[state.perTargetPaths.length - 1];
+  if (last) last.pathEndIdx = state.mousePath.length;
+}
+
+function scheduleNextTarget() {
+  state.spawnTimer = setTimeout(() => {
+    if (state.phase === 'playing') spawnTarget();
+  }, state.config.spawnDelay);
+}
+
+// ─── TRACKING MODE ───────────────────────────────────
+function startTracking() {
+  const tgt = {
+    x: W / 2, y: H / 2,
+    vx: state.config.trackSpeed * (Math.random() > 0.5 ? 1 : -1),
+    vy: state.config.trackSpeed * (Math.random() > 0.5 ? 1 : -1),
+    radius: state.config.targetSize / 2,
+    dirChangeTimer: 0,
+  };
+  state.trackTarget = tgt;
+  state.trackLastCheck = performance.now();
+  state.trackOnTime = 0;
+  state.trackTotalTime = 0;
+  state.targetsSpawned = 1;
+
+  // tracking lasts for a duration based on count (count * 200ms as total time)
+  const duration = state.config.count * 200;
+  state.targetTimeout = setTimeout(() => {
+    endRound();
+  }, duration);
+}
+
+function updateTracking(dt) {
+  const tgt = state.trackTarget;
+  if (!tgt) return;
+
+  const speed = state.config.trackSpeed;
+  tgt.dirChangeTimer += dt;
+
+  // direction changes for hard mode
+  if (state.difficulty === 'hard' && tgt.dirChangeTimer > 800 + Math.random() * 400) {
+    tgt.vx = speed * (Math.random() * 2 - 1);
+    tgt.vy = speed * (Math.random() * 2 - 1);
+    const mag = Math.sqrt(tgt.vx * tgt.vx + tgt.vy * tgt.vy);
+    tgt.vx = (tgt.vx / mag) * speed;
+    tgt.vy = (tgt.vy / mag) * speed;
+    tgt.dirChangeTimer = 0;
+  }
+
+  tgt.x += tgt.vx * dt * 0.06;
+  tgt.y += tgt.vy * dt * 0.06;
+
+  // bounce
+  const pad = tgt.radius + 10;
+  if (tgt.x < pad) { tgt.x = pad; tgt.vx = Math.abs(tgt.vx); }
+  if (tgt.x > W - pad) { tgt.x = W - pad; tgt.vx = -Math.abs(tgt.vx); }
+  if (tgt.y < pad) { tgt.y = pad; tgt.vy = Math.abs(tgt.vy); }
+  if (tgt.y > H - pad) { tgt.y = H - pad; tgt.vy = -Math.abs(tgt.vy); }
+
+  // check if cursor is on target
+  const now = performance.now();
+  const elapsed = now - state.trackLastCheck;
+  state.trackTotalTime += elapsed;
+  state.trackLastCheck = now;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = state.mouseX - rect.left;
+  const my = state.mouseY - rect.top;
+  const dx = mx - tgt.x;
+  const dy = my - tgt.y;
+  if (dx * dx + dy * dy <= tgt.radius * tgt.radius) {
+    state.trackOnTime += elapsed;
+  }
+
+  // score update
+  state.score = Math.round((state.trackOnTime / Math.max(1, state.trackTotalTime)) * 1000);
+}
+
+// ─── EFFECTS ─────────────────────────────────────────
+const effects = [];
+
+function spawnHitEffect(x, y) {
+  effects.push({ type: 'hit', x, y, t: 0, duration: 300 });
+}
+
+function spawnMissEffect(x, y) {
+  effects.push({ type: 'miss', x, y, t: 0, duration: 200 });
+}
+
+function updateEffects(dt) {
+  for (let i = effects.length - 1; i >= 0; i--) {
+    effects[i].t += dt;
+    if (effects[i].t > effects[i].duration) effects.splice(i, 1);
+  }
+}
+
+// ─── RENDER ──────────────────────────────────────────
+let lastFrame = performance.now();
+
+function gameLoop(now) {
+  const dt = now - lastFrame;
+  lastFrame = now;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // subtle grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+  ctx.lineWidth = 1;
+  const gridSize = 60;
+  for (let x = gridSize; x < W; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = gridSize; y < H; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  if (state.phase === 'playing') {
+    if (state.mode === 'tracking') {
+      updateTracking(dt);
+      drawTrackTarget();
+    } else {
+      if (state.target) {
+        if (state.mode === 'precision') {
+          // shrink target over time
+          const elapsed = now - state.precisionShrinkStart;
+          const ratio = 1 - (elapsed / state.config.timeout) * 0.7;
+          state.target.currentRadius = Math.max(4, state.target.radius * ratio);
+        }
+        drawTarget(state.target);
+      }
+    }
+
+    updateHUD(now);
+  }
+
+  // effects
+  updateEffects(dt);
+  drawEffects();
+
+  requestAnimationFrame(gameLoop);
+}
+
+function drawTarget(tgt) {
+  const r = tgt.currentRadius || tgt.radius;
+
+  // glow
+  const grd = ctx.createRadialGradient(tgt.x, tgt.y, r * 0.5, tgt.x, tgt.y, r * 2.5);
+  grd.addColorStop(0, 'rgba(255,71,87,0.15)');
+  grd.addColorStop(1, 'rgba(255,71,87,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(tgt.x, tgt.y, r * 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // outer ring
+  ctx.strokeStyle = 'rgba(255,71,87,0.4)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(tgt.x, tgt.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // fill
+  ctx.fillStyle = var_target();
+  ctx.beginPath();
+  ctx.arc(tgt.x, tgt.y, r * 0.85, 0, Math.PI * 2);
+  ctx.fill();
+
+  // inner dot
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(tgt.x, tgt.y, Math.max(2, r * 0.2), 0, Math.PI * 2);
+  ctx.fill();
+
+  // timeout indicator
+  if (state.config.timeout) {
+    const elapsed = performance.now() - state.targetSpawnTime;
+    const pct = Math.min(1, elapsed / state.config.timeout);
+    ctx.strokeStyle = `rgba(255,255,255,${0.3 - pct * 0.3})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(tgt.x, tgt.y, r + 4, -Math.PI / 2, -Math.PI / 2 + (1 - pct) * Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function var_target() {
+  return '#ff4757';
+}
+
+function drawTrackTarget() {
+  const tgt = state.trackTarget;
+  if (!tgt) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = state.mouseX - rect.left;
+  const my = state.mouseY - rect.top;
+  const dx = mx - tgt.x;
+  const dy = my - tgt.y;
+  const onTarget = dx * dx + dy * dy <= tgt.radius * tgt.radius;
+
+  // glow
+  const grd = ctx.createRadialGradient(tgt.x, tgt.y, tgt.radius * 0.5, tgt.x, tgt.y, tgt.radius * 2.5);
+  grd.addColorStop(0, onTarget ? 'rgba(0,230,118,0.2)' : 'rgba(255,71,87,0.15)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(tgt.x, tgt.y, tgt.radius * 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = onTarget ? '#00e676' : '#ff4757';
+  ctx.beginPath();
+  ctx.arc(tgt.x, tgt.y, tgt.radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(tgt.x, tgt.y, Math.max(2, tgt.radius * 0.2), 0, Math.PI * 2);
+  ctx.fill();
+
+  // tracking percentage
+  const pct = state.trackTotalTime > 0 ? Math.round((state.trackOnTime / state.trackTotalTime) * 100) : 0;
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '600 14px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(pct + '%', tgt.x, tgt.y - tgt.radius - 10);
+}
+
+function drawEffects() {
+  for (const fx of effects) {
+    const p = fx.t / fx.duration;
+    if (fx.type === 'hit') {
+      ctx.strokeStyle = `rgba(0,230,118,${1 - p})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, 10 + p * 30, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = `rgba(255,82,82,${1 - p})`;
+      ctx.lineWidth = 1.5;
+      const s = 6 + p * 4;
+      ctx.beginPath();
+      ctx.moveTo(fx.x - s, fx.y - s);
+      ctx.lineTo(fx.x + s, fx.y + s);
+      ctx.moveTo(fx.x + s, fx.y - s);
+      ctx.lineTo(fx.x - s, fx.y + s);
+      ctx.stroke();
+    }
+  }
+}
+
+function updateHUD(now) {
+  const elapsed = (now - state.roundStart) / 1000;
+  document.getElementById('hudScore').textContent = state.score;
+  document.getElementById('hudTime').textContent = elapsed.toFixed(1) + 's';
+
+  if (state.mode === 'tracking') {
+    const pct = state.trackTotalTime > 0 ? Math.round((state.trackOnTime / state.trackTotalTime) * 100) : 0;
+    document.getElementById('hudAccuracy').textContent = pct + '%';
+    document.getElementById('hudHits').textContent = '';
+  } else {
+    const total = state.hits + state.misses;
+    const acc = total > 0 ? Math.round((state.hits / total) * 100) : 0;
+    document.getElementById('hudAccuracy').textContent = acc + '%';
+    document.getElementById('hudHits').textContent = state.hits + '/' + state.targetsSpawned;
+  }
+
+  if (state.streak > 2) {
+    document.getElementById('hudStreak').textContent = state.streak + ' streak';
+  } else {
+    document.getElementById('hudStreak').textContent = '';
+  }
+}
+
+// ─── HABIT ANALYZER ──────────────────────────────────
+const HabitAnalyzer = {
+  analyze(st) {
+    const results = [];
+    const mode = st.mode;
+
+    if (mode !== 'tracking') {
+      results.push(this.detectOverflicking(st));
+      results.push(this.detectUnderflicking(st));
+      results.push(this.detectSpamClicking(st));
+      results.push(this.detectPanicClicking(st));
+      results.push(this.detectHesitation(st));
+      results.push(this.detectCurvedPathing(st));
+      results.push(this.detectJerkyMovement(st));
+      results.push(this.detectTargetFixation(st));
+      results.push(this.detectRecoilFlinch(st));
+      results.push(this.detectInconsistentSpeed(st));
+    }
+
+    results.push(this.detectDrift(st));
+
+    // prediction only if we have target spawn data
+    if (mode !== 'tracking' && st.targetEvents.length > 2) {
+      results.push(this.detectPrediction(st));
+    }
+
+    return results.filter(r => r !== null);
+  },
+
+  _getPathForTarget(st, idx) {
+    const ptp = st.perTargetPaths[idx];
+    if (!ptp) return [];
+    const start = ptp.pathStartIdx;
+    const end = ptp.pathEndIdx != null ? ptp.pathEndIdx : st.mousePath.length;
+    return st.mousePath.slice(start, end);
+  },
+
+  detectOverflicking(st) {
+    let count = 0;
+    const hitEvents = st.targetEvents.filter(e => e.hit);
+    for (let i = 0; i < hitEvents.length; i++) {
+      const path = this._getPathForTarget(st, i);
+      if (path.length < 5) continue;
+      const tgt = st.perTargetPaths[i]?.target;
+      if (!tgt) continue;
+
+      // check if mouse path crossed past target and reversed
+      let passedTarget = false;
+      let reversed = false;
+      let prevDist = Infinity;
+      for (let j = 1; j < path.length; j++) {
+        const dist = Math.sqrt((path[j].x - tgt.x) ** 2 + (path[j].y - tgt.y) ** 2);
+        if (dist < tgt.radius * 0.5) passedTarget = true;
+        if (passedTarget && dist > prevDist + tgt.radius * HABIT_THRESHOLDS.overflickDistRatio) {
+          // check if they then came back
+          for (let k = j + 1; k < path.length; k++) {
+            const d2 = Math.sqrt((path[k].x - tgt.x) ** 2 + (path[k].y - tgt.y) ** 2);
+            if (d2 < dist - 5) { reversed = true; break; }
+          }
+          break;
+        }
+        prevDist = dist;
+      }
+      if (reversed) count++;
+    }
+
+    if (count >= 3) {
+      return { type: 'bad', name: 'Overflicking', count, detail: `Detected ${count} times`,
+        tip: "You're overshooting targets — lower sens or practice deceleration" };
+    }
+    if (count === 0 && hitEvents.length > 5) {
+      return { type: 'good', name: 'No overflicking', detail: 'Good flick control' };
+    }
+    return null;
+  },
+
+  detectUnderflicking(st) {
+    let count = 0;
+    for (let i = 0; i < st.perTargetPaths.length; i++) {
+      const path = this._getPathForTarget(st, i);
+      if (path.length < 8) continue;
+      const tgt = st.perTargetPaths[i]?.target;
+      if (!tgt) continue;
+
+      // detect: fast move that stops short, then slow creep to target
+      let fastPhaseEnd = -1;
+      for (let j = 2; j < path.length - 2; j++) {
+        const v1 = Math.sqrt((path[j].x - path[j-1].x) ** 2 + (path[j].y - path[j-1].y) ** 2);
+        const v2 = Math.sqrt((path[j+1].x - path[j].x) ** 2 + (path[j+1].y - path[j].y) ** 2);
+        if (v1 > 3 && v2 < 1.5 && v1 > v2 * 2.5) {
+          fastPhaseEnd = j;
+          break;
+        }
+      }
+      if (fastPhaseEnd > 0) {
+        const distAtStop = Math.sqrt((path[fastPhaseEnd].x - tgt.x) ** 2 + (path[fastPhaseEnd].y - tgt.y) ** 2);
+        if (distAtStop > tgt.radius * 1.2) {
+          count++;
+        }
+      }
+    }
+
+    if (count >= 3) {
+      return { type: 'bad', name: 'Underflicking', count, detail: `Detected ${count} times`,
+        tip: "You're falling short — trust your flick and commit to the motion" };
+    }
+    return null;
+  },
+
+  detectSpamClicking(st) {
+    let spamCount = 0;
+    for (let i = 1; i < st.clicks.length; i++) {
+      if (st.clicks[i].t - st.clicks[i-1].t < HABIT_THRESHOLDS.spamClickInterval) {
+        spamCount++;
+      }
+    }
+    if (spamCount >= 3) {
+      return { type: 'bad', name: 'Spam clicking', count: spamCount, detail: `${spamCount} rapid click pairs (<100ms apart)`,
+        tip: "Stop spam clicking — one deliberate click per target is faster" };
+    }
+    if (st.clicks.length > 10 && spamCount === 0) {
+      return { type: 'good', name: 'Deliberate clicking', detail: 'One click per target' };
+    }
+    return null;
+  },
+
+  detectPanicClicking(st) {
+    let panicTargets = 0;
+    for (const te of st.targetEvents) {
+      if (!te.hit) continue;
+      const windowStart = te.spawnTime + (st.config.timeout * (1 - HABIT_THRESHOLDS.panicClickWindowRatio));
+      const clicksNearExpiry = st.clicks.filter(c => c.t >= windowStart && c.t <= te.hitTime);
+      const clicksBefore = st.clicks.filter(c => c.t >= te.spawnTime && c.t < windowStart);
+      if (clicksNearExpiry.length > 2 && clicksNearExpiry.length > clicksBefore.length * 2) {
+        panicTargets++;
+      }
+    }
+    if (panicTargets >= 2) {
+      return { type: 'bad', name: 'Panic clicking', count: panicTargets, detail: `Detected on ${panicTargets} targets`,
+        tip: "You're panic-clicking near expiry — stay calm, prioritize accuracy" };
+    }
+    return null;
+  },
+
+  detectPrediction(st) {
+    // check if mouse moves toward next target position during spawn delay
+    let predCount = 0;
+    for (let i = 1; i < st.targetEvents.length; i++) {
+      const prev = st.targetEvents[i - 1];
+      const curr = st.targetEvents[i];
+      if (!prev.hitTime && !prev.spawnTime) continue;
+
+      const gapStart = prev.hitTime || (prev.spawnTime + st.config.timeout);
+      const gapEnd = curr.spawnTime;
+      if (!gapEnd || gapEnd - gapStart < 100) continue;
+
+      const pathDuringGap = st.mousePath.filter(p => p.t >= gapStart && p.t <= gapEnd);
+      if (pathDuringGap.length < 3) continue;
+
+      const startPos = pathDuringGap[0];
+      const endPos = pathDuringGap[pathDuringGap.length - 1];
+      const moveToward = Math.sqrt((endPos.x - curr.x) ** 2 + (endPos.y - curr.y) ** 2);
+      const startDist = Math.sqrt((startPos.x - curr.x) ** 2 + (startPos.y - curr.y) ** 2);
+
+      if (moveToward < startDist * 0.6 && startDist > 50) {
+        predCount++;
+      }
+    }
+    if (predCount >= 3) {
+      return { type: 'bad', name: 'Pre-aiming / Prediction', count: predCount,
+        detail: `Mouse moved toward ${predCount} target positions before they spawned`,
+        tip: "You're guessing where targets will appear — react, don't predict" };
+    }
+    return null;
+  },
+
+  detectHesitation(st) {
+    let hesCount = 0;
+    for (let i = 0; i < st.perTargetPaths.length; i++) {
+      const path = this._getPathForTarget(st, i);
+      const tgt = st.perTargetPaths[i]?.target;
+      if (!tgt || path.length < 3) continue;
+
+      // find first significant movement toward target
+      const firstPoint = path[0];
+      if (!firstPoint) continue;
+      const spawnTime = path[0].t;
+
+      for (let j = 1; j < path.length; j++) {
+        const dist = Math.sqrt((path[j].x - path[j-1].x) ** 2 + (path[j].y - path[j-1].y) ** 2);
+        if (dist > 3) {
+          if (path[j].t - spawnTime > HABIT_THRESHOLDS.hesitationDelay) {
+            hesCount++;
+          }
+          break;
+        }
+      }
+    }
+    if (hesCount >= 3) {
+      return { type: 'bad', name: 'Hesitation', count: hesCount, detail: `Slow reaction on ${hesCount} targets (>500ms to start moving)`,
+        tip: "Slow initial reaction — start moving immediately, correct en route" };
+    }
+    if (st.perTargetPaths.length > 5 && hesCount <= 1) {
+      return { type: 'good', name: 'Quick reactions', detail: 'Fast initial movement to targets' };
+    }
+    return null;
+  },
+
+  detectCurvedPathing(st) {
+    let curveCount = 0;
+    let totalRatio = 0;
+    let measured = 0;
+
+    for (let i = 0; i < st.perTargetPaths.length; i++) {
+      const path = this._getPathForTarget(st, i);
+      if (path.length < 5) continue;
+      const tgt = st.perTargetPaths[i]?.target;
+      if (!tgt) continue;
+
+      let pathLen = 0;
+      for (let j = 1; j < path.length; j++) {
+        pathLen += Math.sqrt((path[j].x - path[j-1].x) ** 2 + (path[j].y - path[j-1].y) ** 2);
+      }
+      const directDist = Math.sqrt((path[path.length-1].x - path[0].x) ** 2 + (path[path.length-1].y - path[0].y) ** 2);
+
+      if (directDist > 20) {
+        const ratio = pathLen / directDist;
+        totalRatio += ratio;
+        measured++;
+        if (ratio > HABIT_THRESHOLDS.curvedPathRatio) curveCount++;
+      }
+    }
+
+    if (curveCount >= 3) {
+      const avgRatio = (totalRatio / measured).toFixed(2);
+      return { type: 'bad', name: 'Curved pathing', count: curveCount,
+        detail: `${curveCount} paths with inefficient curves (avg ratio: ${avgRatio}x)`,
+        tip: "Take straighter paths to targets — your mouse path is inefficient" };
+    }
+    if (measured > 5 && curveCount <= 1) {
+      return { type: 'good', name: 'Efficient pathing', detail: 'Straight paths to targets' };
+    }
+    return null;
+  },
+
+  detectJerkyMovement(st) {
+    if (st.mousePath.length < 20) return null;
+
+    const velocities = [];
+    for (let i = 1; i < st.mousePath.length; i++) {
+      const dt = st.mousePath[i].t - st.mousePath[i-1].t;
+      if (dt < 1) continue;
+      const dx = st.mousePath[i].x - st.mousePath[i-1].x;
+      const dy = st.mousePath[i].y - st.mousePath[i-1].y;
+      velocities.push(Math.sqrt(dx*dx + dy*dy) / dt);
+    }
+
+    if (velocities.length < 10) return null;
+
+    const mean = velocities.reduce((a,b) => a+b, 0) / velocities.length;
+    const variance = velocities.reduce((a,b) => a + (b - mean) ** 2, 0) / velocities.length;
+    const cv = Math.sqrt(variance) / (mean || 1);
+
+    if (cv > HABIT_THRESHOLDS.jerkyVelocityCV) {
+      return { type: 'bad', name: 'Jerky movement', detail: `High velocity variance (CV: ${cv.toFixed(2)})`,
+        tip: "Your movement is jerky — practice smooth, consistent mouse control" };
+    }
+    return { type: 'good', name: 'Smooth movement', detail: 'Consistent mouse velocity' };
+  },
+
+  detectTargetFixation(st) {
+    let slowdownCount = 0;
+    for (let i = 0; i < st.perTargetPaths.length; i++) {
+      const path = this._getPathForTarget(st, i);
+      if (path.length < 10) continue;
+      const tgt = st.perTargetPaths[i]?.target;
+      if (!tgt) continue;
+
+      // compare velocity in first half vs last quarter of path
+      const midIdx = Math.floor(path.length / 2);
+      const lastQIdx = Math.floor(path.length * 0.75);
+
+      let earlySpeed = 0, earlyCount = 0;
+      for (let j = 1; j <= midIdx; j++) {
+        const dt = path[j].t - path[j-1].t;
+        if (dt < 1) continue;
+        const d = Math.sqrt((path[j].x - path[j-1].x) ** 2 + (path[j].y - path[j-1].y) ** 2);
+        earlySpeed += d / dt;
+        earlyCount++;
+      }
+
+      let lateSpeed = 0, lateCount = 0;
+      for (let j = lastQIdx + 1; j < path.length; j++) {
+        const dt = path[j].t - path[j-1].t;
+        if (dt < 1) continue;
+        const d = Math.sqrt((path[j].x - path[j-1].x) ** 2 + (path[j].y - path[j-1].y) ** 2);
+        lateSpeed += d / dt;
+        lateCount++;
+      }
+
+      if (earlyCount > 0 && lateCount > 0) {
+        const earlyAvg = earlySpeed / earlyCount;
+        const lateAvg = lateSpeed / lateCount;
+        if (earlyAvg > 0 && lateAvg / earlyAvg < HABIT_THRESHOLDS.fixationSlowdownRatio) {
+          slowdownCount++;
+        }
+      }
+    }
+
+    if (slowdownCount >= 3) {
+      return { type: 'bad', name: 'Target fixation', count: slowdownCount,
+        detail: `Dramatic slowdown near ${slowdownCount} targets`,
+        tip: "You're slowing down too much near the target — follow through" };
+    }
+    return null;
+  },
+
+  detectRecoilFlinch(st) {
+    let flinchCount = 0;
+    for (const click of st.clicks) {
+      if (!click.hit) continue;
+      // find mouse positions just before and after click
+      const before = st.mousePath.filter(p => p.t >= click.t - 30 && p.t <= click.t);
+      const after = st.mousePath.filter(p => p.t >= click.t && p.t <= click.t + 50);
+
+      if (before.length > 0 && after.length > 0) {
+        const pre = before[before.length - 1];
+        const post = after[after.length > 1 ? 1 : 0];
+        const dist = Math.sqrt((post.x - pre.x) ** 2 + (post.y - pre.y) ** 2);
+        if (dist > HABIT_THRESHOLDS.flinchDistance) {
+          flinchCount++;
+        }
+      }
+    }
+
+    if (flinchCount >= 3) {
+      return { type: 'bad', name: 'Recoil flinch', count: flinchCount,
+        detail: `Mouse jumped on ${flinchCount} clicks`,
+        tip: "You're flinching when you click — keep your hand steady through the click" };
+    }
+    if (st.clicks.filter(c => c.hit).length > 5 && flinchCount <= 1) {
+      return { type: 'good', name: 'Steady clicking', detail: 'Minimal mouse movement on click' };
+    }
+    return null;
+  },
+
+  detectDrift(st) {
+    // find periods with no active target
+    if (st.mousePath.length < 10) return null;
+    let driftDist = 0;
+    let driftSamples = 0;
+
+    // for non-tracking: movement between targets
+    if (st.mode !== 'tracking') {
+      for (let i = 0; i < st.perTargetPaths.length - 1; i++) {
+        const endIdx = st.perTargetPaths[i].pathEndIdx;
+        const startIdx = st.perTargetPaths[i + 1]?.pathStartIdx;
+        if (endIdx == null || startIdx == null || startIdx <= endIdx) continue;
+
+        for (let j = endIdx + 1; j < startIdx && j < st.mousePath.length; j++) {
+          const prev = st.mousePath[j-1];
+          const curr = st.mousePath[j];
+          if (!prev || !curr) continue;
+          driftDist += Math.sqrt((curr.x - prev.x) ** 2 + (curr.y - prev.y) ** 2);
+          driftSamples++;
+        }
+      }
+    }
+
+    if (driftSamples > 5 && driftDist / driftSamples > 2) {
+      return { type: 'bad', name: 'Idle drift', detail: `Cursor moves ${Math.round(driftDist)}px when no target active`,
+        tip: "Your cursor drifts when idle — keep it centered and still between targets" };
+    }
+    return null;
+  },
+
+  detectInconsistentSpeed(st) {
+    const rts = st.targetEvents.filter(e => e.hit && e.reactionTime).map(e => e.reactionTime);
+    if (rts.length < 5) return null;
+
+    const mean = rts.reduce((a,b) => a+b, 0) / rts.length;
+    const variance = rts.reduce((a,b) => a + (b - mean) ** 2, 0) / rts.length;
+    const cv = Math.sqrt(variance) / mean;
+
+    if (cv > HABIT_THRESHOLDS.inconsistentSpeedCV) {
+      return { type: 'bad', name: 'Inconsistent speed',
+        detail: `Flick times vary widely (CV: ${cv.toFixed(2)})`,
+        tip: "Your flick speed is inconsistent — aim for repeatable motions" };
+    }
+    return { type: 'good', name: 'Consistent speed', detail: `Steady reaction times (CV: ${cv.toFixed(2)})` };
+  },
+};
+
+// ─── RESULTS DISPLAY ─────────────────────────────────
+function showResults() {
+  const panel = document.getElementById('results');
+  panel.classList.add('visible');
+
+  const duration = ((state.roundEnd - state.roundStart) / 1000).toFixed(1);
+  const rts = state.targetEvents.filter(e => e.hit && e.reactionTime).map(e => e.reactionTime);
+  const avgRT = rts.length > 0 ? Math.round(rts.reduce((a,b) => a+b, 0) / rts.length) : '-';
+
+  let statsHTML = '';
+  if (state.mode === 'tracking') {
+    const pct = state.trackTotalTime > 0 ? Math.round((state.trackOnTime / state.trackTotalTime) * 100) : 0;
+    statsHTML = `
+      <div class="stat-row"><span class="stat-label">Score</span><span class="stat-value">${state.score}</span></div>
+      <div class="stat-row"><span class="stat-label">On-target</span><span class="stat-value">${pct}%</span></div>
+      <div class="stat-row"><span class="stat-label">Duration</span><span class="stat-value">${duration}s</span></div>
+    `;
+  } else {
+    const totalTargets = state.hits + state.targetsMissed;
+    const acc = totalTargets > 0 ? Math.round((state.hits / (state.hits + state.misses)) * 100) : 0;
+    const hitRate = totalTargets > 0 ? Math.round((state.hits / totalTargets) * 100) : 0;
+    statsHTML = `
+      <div class="stat-row"><span class="stat-label">Score</span><span class="stat-value">${state.score}</span></div>
+      <div class="stat-row"><span class="stat-label">Click Accuracy</span><span class="stat-value">${acc}%</span></div>
+      <div class="stat-row"><span class="stat-label">Hit Rate</span><span class="stat-value">${hitRate}%</span></div>
+      <div class="stat-row"><span class="stat-label">Hits / Targets</span><span class="stat-value">${state.hits}/${totalTargets}</span></div>
+      <div class="stat-row"><span class="stat-label">Avg Reaction</span><span class="stat-value">${avgRT}ms</span></div>
+      <div class="stat-row"><span class="stat-label">Max Streak</span><span class="stat-value">${state.maxStreak}</span></div>
+      <div class="stat-row"><span class="stat-label">Duration</span><span class="stat-value">${duration}s</span></div>
+    `;
+  }
+  document.getElementById('statsBody').innerHTML = statsHTML;
+
+  // habit analysis
+  const habits = HabitAnalyzer.analyze(state);
+  let habitsHTML = '';
+  if (habits.length === 0) {
+    habitsHTML = '<div class="habit-item" style="color:var(--text-dim)">Not enough data for analysis. Try a longer round.</div>';
+  } else {
+    for (const h of habits) {
+      const icon = h.type === 'bad' ? '!!' : 'OK';
+      const cls = h.type === 'bad' ? 'habit-bad' : 'habit-good';
+      habitsHTML += `<div class="habit-item ${cls}">
+        <span class="habit-icon">${h.type === 'bad' ? '&#9888;' : '&#10003;'}</span>
+        <div>
+          <span class="habit-name">${h.name}${h.count ? ' (' + h.count + 'x)' : ''}</span>
+          <span class="habit-detail"> — ${h.detail}</span>
+          ${h.tip ? '<div class="habit-tip">' + h.tip + '</div>' : ''}
+        </div>
+      </div>`;
+    }
+  }
+  document.getElementById('habitsBody').innerHTML = habitsHTML;
+
+  // save to history
+  saveRound(habits);
+}
+
+// ─── PERSISTENCE ─────────────────────────────────────
+function saveRound(habits) {
+  const history = JSON.parse(localStorage.getItem('aimtrainer_history') || '[]');
+  const rts = state.targetEvents.filter(e => e.hit && e.reactionTime).map(e => e.reactionTime);
+
+  const entry = {
+    date: new Date().toISOString(),
+    mode: state.mode,
+    difficulty: state.difficulty,
+    score: state.score,
+    hits: state.hits,
+    targets: state.hits + state.targetsMissed,
+    totalClicks: state.totalClicks,
+    misses: state.misses,
+    maxStreak: state.maxStreak,
+    avgRT: rts.length > 0 ? Math.round(rts.reduce((a,b) => a+b, 0) / rts.length) : null,
+    duration: Math.round(state.roundEnd - state.roundStart),
+    habits: habits.filter(h => h.type === 'bad').map(h => h.name),
+    trackPct: state.mode === 'tracking' && state.trackTotalTime > 0
+      ? Math.round((state.trackOnTime / state.trackTotalTime) * 100) : null,
+  };
+
+  history.push(entry);
+  // keep last 200 entries
+  if (history.length > 200) history.splice(0, history.length - 200);
+  localStorage.setItem('aimtrainer_history', JSON.stringify(history));
+}
+
+function showHistory() {
+  const history = JSON.parse(localStorage.getItem('aimtrainer_history') || '[]');
+  if (history.length === 0) {
+    alert('No history yet. Play a round first!');
+    return;
+  }
+
+  const panel = document.getElementById('results');
+  panel.classList.add('visible');
+  document.getElementById('centerMsg').classList.remove('visible');
+
+  // stats summary
+  const recent = history.slice(-20);
+  const scores = recent.map(r => r.score);
+  const avgScore = Math.round(scores.reduce((a,b) => a+b, 0) / scores.length);
+  const rts = recent.filter(r => r.avgRT).map(r => r.avgRT);
+  const avgRT = rts.length > 0 ? Math.round(rts.reduce((a,b) => a+b, 0) / rts.length) : '-';
+
+  // most common habits
+  const habitCounts = {};
+  for (const r of recent) {
+    for (const h of (r.habits || [])) {
+      habitCounts[h] = (habitCounts[h] || 0) + 1;
+    }
+  }
+  const topHabits = Object.entries(habitCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+
+  let statsHTML = `
+    <div class="stat-row"><span class="stat-label">Total Rounds</span><span class="stat-value">${history.length}</span></div>
+    <div class="stat-row"><span class="stat-label">Avg Score (last 20)</span><span class="stat-value">${avgScore}</span></div>
+    <div class="stat-row"><span class="stat-label">Avg RT (last 20)</span><span class="stat-value">${avgRT}ms</span></div>
+    <div class="stat-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+      <span class="stat-label">Last 5 rounds</span><span class="stat-value"></span>
+    </div>
+  `;
+  for (const r of history.slice(-5).reverse()) {
+    const date = new Date(r.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    statsHTML += `<div class="stat-row"><span class="stat-label">${date} · ${r.mode} · ${r.difficulty}</span><span class="stat-value">${r.score}</span></div>`;
+  }
+  document.getElementById('statsBody').innerHTML = statsHTML;
+
+  let habitsHTML = '';
+  if (topHabits.length === 0) {
+    habitsHTML = '<div style="color:var(--text-dim)">No recurring habits detected yet.</div>';
+  } else {
+    habitsHTML = '<div style="margin-bottom:8px;color:var(--text-dim);font-size:12px">Most common issues (last 20 rounds):</div>';
+    for (const [name, count] of topHabits) {
+      habitsHTML += `<div class="habit-item habit-bad">
+        <span class="habit-icon">&#9888;</span>
+        <div><span class="habit-name">${name}</span> <span class="habit-detail">— ${count} rounds</span></div>
+      </div>`;
+    }
+  }
+
+  // trend: are they improving?
+  if (history.length >= 5) {
+    const first5 = history.slice(0, Math.min(5, Math.floor(history.length / 2)));
+    const last5 = history.slice(-5);
+    const firstAvg = first5.reduce((a,r) => a + r.score, 0) / first5.length;
+    const lastAvg = last5.reduce((a,r) => a + r.score, 0) / last5.length;
+    const pctChange = Math.round(((lastAvg - firstAvg) / (firstAvg || 1)) * 100);
+    if (pctChange > 5) {
+      habitsHTML += `<div class="habit-item habit-good" style="margin-top:8px">
+        <span class="habit-icon">&#10003;</span>
+        <div><span class="habit-name">Improving!</span> <span class="habit-detail">— Score up ${pctChange}% from early rounds</span></div>
+      </div>`;
+    } else if (pctChange < -5) {
+      habitsHTML += `<div class="habit-item habit-bad" style="margin-top:8px">
+        <span class="habit-icon">&#9888;</span>
+        <div><span class="habit-name">Score declining</span> <span class="habit-detail">— Down ${Math.abs(pctChange)}% from early rounds. Take a break?</span></div>
+      </div>`;
+    }
+  }
+
+  document.getElementById('habitsBody').innerHTML = habitsHTML;
+}
+
+// Restore settings from localStorage
+(function loadSettings() {
+  const saved = localStorage.getItem('aimtrainer_settings');
+  if (saved) {
+    try {
+      const s = JSON.parse(saved);
+      if (s.mode) {
+        state.mode = s.mode;
+        document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === s.mode));
+      }
+      if (s.difficulty) {
+        state.difficulty = s.difficulty;
+        document.querySelectorAll('[data-diff]').forEach(b => b.classList.toggle('active', b.dataset.diff === s.difficulty));
+        document.getElementById('customSettings').classList.toggle('visible', s.difficulty === 'custom');
+      }
+      if (s.custom) {
+        document.getElementById('cSize').value = s.custom.size || 30;
+        document.getElementById('cTimeout').value = s.custom.timeout || 1200;
+        document.getElementById('cDelay').value = s.custom.delay || 400;
+        document.getElementById('cCount').value = s.custom.count || 50;
+      }
+    } catch(e) {}
+  }
+})();
+
+// Save settings on change
+function saveSettings() {
+  const settings = {
+    mode: state.mode,
+    difficulty: state.difficulty,
+    custom: {
+      size: document.getElementById('cSize').value,
+      timeout: document.getElementById('cTimeout').value,
+      delay: document.getElementById('cDelay').value,
+      count: document.getElementById('cCount').value,
+    }
+  };
+  localStorage.setItem('aimtrainer_settings', JSON.stringify(settings));
+}
+
+document.querySelectorAll('[data-mode],[data-diff]').forEach(b => b.addEventListener('click', saveSettings));
+document.querySelectorAll('.custom-field input').forEach(el => el.addEventListener('change', saveSettings));
+
+// ─── START ───────────────────────────────────────────
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
